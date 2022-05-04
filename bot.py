@@ -174,18 +174,20 @@ def read_email(message):
                 num_to = raw_email_string.lower().find("to")
                 num_sub = raw_email_string.lower().find("subject")
                 if num != -1:
-                    date = "Date:"+ raw_email_string[num:raw_email_string.lower().find("\r\n")]
-                    st+=date
-                if num_from!=-1:
-                    fr = "FROM" + raw_email_string[num_from:raw_email_string.lower().find("\r\n")]
-                    st+=fr
+                    date = raw_email_string[num:num + raw_email_string[num:].lower().find("\n")]
+                    st += date + "\n"
+                if num_from != -1:
+                    fr =raw_email_string[num_from:num_from + raw_email_string[num_from:].lower().find("\n")]
+                    st += fr + "\n"
                 if num_to != -1:
-                    to = "to" + raw_email_string[num_from:raw_email_string.lower().find("\r\n")]
-                    st+=to
+                    to = raw_email_string[num_to:num_to + raw_email_string[num_to:].lower().find("\n")]
+                    st += to + "\n"
                 if num_sub != -1:
-                    sub = "FROM" + raw_email_string[num_sub:raw_email_string.lower().find("\r\n")]
-                    st+=sub
-                st +="Text:" + raw_email_string[raw_email_string.lower().find("><div>"):raw_email_string.lower().find("</div>")]
+                    sub =raw_email_string[num_sub:num_sub + raw_email_string[num_sub:].lower().find("\n")]
+                    st += sub + "\n"
+                num_d = raw_email_string.lower().find("<div>")
+                st += "Text:"+raw_email_string[num_d + 5:num_d + raw_email_string[num_d:].lower().find("</div")]
+
             else:
                 num = raw_email_string.find("Date")
                 ll = raw_email_string[num:].split("\n\r")
