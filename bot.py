@@ -168,15 +168,34 @@ def read_email(message):
             raw_email = data[0][1]
 
             raw_email_string = raw_email.decode('utf-8')
-            num = raw_email_string.find("Date")
-            ll = raw_email_string[num:].split("\n\r")
-            for i in range(len(ll)):
-                if i == len(ll)-1:
-                    st+="Text:" + ll[i].replace("\n","") + "\n"
-                else:
-                    if ll[i]!=' ':
-                        st+=ll[i] + "\n"
-            st+="\n"
+            if host == mail_in:
+                num = raw_email_string.lower().find("date")
+                num_from = raw_email_string.lower().find("from")
+                num_to = raw_email_string.lower().find("to")
+                num_sub = raw_email_string.lower().find("subject")
+                if num != -1:
+                    date = "Date:"+ raw_email_string[num:raw_email_string.lower().find("\r\n")]
+                    st+=date
+                if num_from!=-1:
+                    fr = "FROM" + raw_email_string[num_from:raw_email_string.lower().find("\r\n")]
+                    st+=fr
+                if num_to != -1:
+                    to = "to" + raw_email_string[num_from:raw_email_string.lower().find("\r\n")]
+                    st+=to
+                if num_sub != -1:
+                    sub = "FROM" + raw_email_string[num_sub:raw_email_string.lower().find("\r\n")]
+                    st+=sub
+                st +="Text:" + raw_email_string[raw_email_string.lower().find("><div>"):raw_email_string.lower().find("</div>")]
+            else:
+                num = raw_email_string.find("Date")
+                ll = raw_email_string[num:].split("\n\r")
+                for i in range(len(ll)):
+                    if i == len(ll) - 1:
+                        st += "Text:" + ll[i].replace("\n", "") + "\n"
+                    else:
+                        if ll[i] != ' ':
+                            st += ll[i] + "\n"
+                st += "\n"
         bot.send_message(id,st)
     else:
         bot.send_message(id, "Проверьте адресс ввода")
