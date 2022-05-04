@@ -35,9 +35,15 @@ else:
     df = pd.read_csv(path_to_file, sep=';')
 
 def check_address_out(st, inout):
+
     if st.find('@')==-1:
         return None, None
     ll = st.split('@')
+    if ll[1].find("mail") == -1:
+        if not inout:
+            return mail_out, mail_out_port
+        else:
+            return mail_in, mail_in_port
     if ll[1].find("gmail") != -1:
         if not inout:
             return gmail_out, gmail_port_out
@@ -49,15 +55,23 @@ def check_address_out(st, inout):
         else:
             return mail_in, mail_in_port
 
+
 @bot.message_handler(commands=['register']) #декоратор для приема сообщений регистр
 def register_account(message):
+    id = message.from_user.id # получаем айди юзера по сообщению
+    if len(message.text.split())<3:
+        bot.send_message(id, "Неверная команда")
+        return
     list_info = message.text.split() #текст из сообщения разделяем по пробелам
     address = list_info[1] #адрес 1 элемент
     password = list_info[2] #пароль второй
-    id = message.from_user.id # получаем айди юзера по сообщению
+
     if len(list(df.loc[df['address']==address]['password'].values)) == 0: #смотрим был ли емейл в нашем файле
         host, port = check_address_out(address, False) #получаем хост и порт в зависимости от адреса мейл или джимейл
         if host is None:
+            if port == 0:
+                bot.send_message(id, "Нужна почта gmail mail")
+                return
             bot.send_message(id, "Проверьте вводимую почту")
             return
         server = smtplib.SMTP_SSL(host, port) # идем на сервер логинимся, если логин не срабатывает присылаем ошибку
@@ -78,6 +92,10 @@ def register_account(message):
 @bot.message_handler(commands=['send'])
 def send_message(message):
     df = pd.read_csv(path_to_file,sep=';') # открываем датафрейм наших пользователей
+    id = message.from_user.id
+    if len(message.text.split())<3:
+        bot.send_message(id, "Неверная команда")
+        return
     list_info = message.text.split()
     fr = list_info[1]
     to = []
@@ -94,13 +112,12 @@ def send_message(message):
         return
     for j in range(number, len(list_info)):#получаем строки сообщений
         msg+=str(list_info[j]) + " "
-    id = message.from_user.id
     if id in list(df['id']):
         if fr in list(df['address']):#проверяем наличие адреса для пользователя, подключаемся логинимся отправляем, в случае ошибки пишем
             host, port = check_address_out(fr, False)
             server = smtplib.SMTP_SSL(host, port)
             server.login(fr, list(df.loc[(df['address']==fr) & (df['id']==id)]['password'].values)[0])
-            server.sendmail(fr, to, msg)
+            server.sendmail(fr, to, msg.encode('utf-8'))
             server.quit()
             bot.send_message(id,"Ваше сообщение отправлено")
         else:
@@ -111,12 +128,16 @@ def send_message(message):
 @bot.message_handler(commands=['read'])
 def read_email(message):
     df = pd.read_csv(path_to_file, sep=';')#смотрим датафрейм почт
+    id = message.from_user.id
+    if len(message.text.split())<2:
+        bot.send_message(id, "Неверная команда")
+        return
     address = message.text.split()[1]#адрес
     if len(message.text.split())<3:
         count = 0
     else:
         count = message.text.split()[2]#счетчик сообщений для чтения
-    id = message.from_user.id
+
     if id in list(df['id']) and address in list(df['address']):#проверяем есть ли для пользователя почта и читаем ее
         host, port = check_address_out(address, True)
         mail = imaplib.IMAP4_SSL(host, port)
@@ -135,7 +156,6 @@ def read_email(message):
         if count < 2:
             latest_email_ids = []
             latest_email_ids.append(id_list[-1])
-            print(latest_email_ids)
         else:
             latest_email_ids = id_list[-count-1:-1]
         st = ""
@@ -146,8 +166,17 @@ def read_email(message):
         for l in latest_email_ids:
             result, data = mail.fetch(l, "(RFC822)")
             raw_email = data[0][1]
+
             raw_email_string = raw_email.decode('utf-8')
-            st+= raw_email_string
+            num = raw_email_string.find("Date")
+            ll = raw_email_string[num:].split("\n\r")
+            for i in range(len(ll)):
+                if i == len(ll)-1:
+                    st+="Text:" + ll[i].replace("\n","") + "\n"
+                else:
+                    if ll[i]!=' ':
+                        st+=ll[i] + "\n"
+            st+="\n"
         bot.send_message(id,st)
     else:
         bot.send_message(id, "Проверьте адресс ввода")
