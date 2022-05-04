@@ -35,6 +35,8 @@ else:
     df = pd.read_csv(path_to_file, sep=';')
 
 def check_address_out(st, inout):
+    if st.find('@')==-1:
+        return None, None
     ll = st.split('@')
     if ll[1].find("gmail") != -1:
         if not inout:
@@ -55,16 +57,23 @@ def register_account(message):
     id = message.from_user.id # получаем айди юзера по сообщению
     if len(list(df.loc[df['address']==address]['password'].values)) == 0: #смотрим был ли емейл в нашем файле
         host, port = check_address_out(address, False) #получаем хост и порт в зависимости от адреса мейл или джимейл
+        if host is None:
+            bot.send_message(id, "Проверьте вводимую почту")
+            return
         server = smtplib.SMTP_SSL(host, port) # идем на сервер логинимся, если логин не срабатывает присылаем ошибку
         try:
             server.login(address,password)
         except:
-            bot.send_message(id, "Authentification failed")
+            bot.send_message(id, "Ошибка авторизации")
             return
 
         fl = open(path_to_file, mode='a') #тут добавление данных в файл по хорошему надо хэшировать емейл
         fl.write(str(id)+';'+address+';'+str(password)+'\n')
         fl.close()
+        bot.send_message(id, "Пользователь добавлен")
+    else:
+        bot.send_message(id, "Пользователь уже есть")
+
 
 @bot.message_handler(commands=['send'])
 def send_message(message):
@@ -80,6 +89,9 @@ def send_message(message):
         else:
             number = i
             break
+    if len(to)==0:
+        bot.send_message(id, "Вы не ввели адресата")
+        return
     for j in range(number, len(list_info)):#получаем строки сообщений
         msg+=str(list_info[j]) + " "
     id = message.from_user.id
@@ -100,7 +112,10 @@ def send_message(message):
 def read_email(message):
     df = pd.read_csv(path_to_file, sep=';')#смотрим датафрейм почт
     address = message.text.split()[1]#адрес
-    count = message.text.split()[2]#счетчик сообщений для чтения
+    if len(message.text.split())<3:
+        count = 0
+    else:
+        count = message.text.split()[2]#счетчик сообщений для чтения
     id = message.from_user.id
     if id in list(df['id']) and address in list(df['address']):#проверяем есть ли для пользователя почта и читаем ее
         host, port = check_address_out(address, True)
@@ -111,13 +126,29 @@ def read_email(message):
         result, data = mail.search(None, "ALL")
         ids = data[0]
         id_list = ids.split()
-        latest_email_ids = id_list[-count:-1]
+        try:
+            count = int(count)
+        except:
+            bot.send_message(id, "Не корректное количество сообщений")
+            return
+
+        if count < 2:
+            latest_email_ids = []
+            latest_email_ids.append(id_list[-1])
+            print(latest_email_ids)
+        else:
+            latest_email_ids = id_list[-count-1:-1]
         st = ""
+
+        if len(latest_email_ids)>4:
+            bot.send_message(id, "Слишком много сообщений")
+            return
         for l in latest_email_ids:
             result, data = mail.fetch(l, "(RFC822)")
             raw_email = data[0][1]
             raw_email_string = raw_email.decode('utf-8')
-            bot.send_message(id,raw_email_string)
+            st+= raw_email_string
+        bot.send_message(id,st)
     else:
         bot.send_message(id, "Проверьте адресс ввода")
 
