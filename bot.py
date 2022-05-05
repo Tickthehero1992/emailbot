@@ -59,7 +59,7 @@ def check_address_out(st, inout):
 @bot.message_handler(commands=['register']) #декоратор для приема сообщений регистр
 def register_account(message):
     id = message.from_user.id # получаем айди юзера по сообщению
-    if len(message.text.split())<3:
+    if len(message.text.split())<2:
         bot.send_message(id, "Неверная команда")
         return
     list_info = message.text.split() #текст из сообщения разделяем по пробелам
