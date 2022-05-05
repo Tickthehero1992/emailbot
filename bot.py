@@ -6,6 +6,8 @@ import imaplib
 import email
 import hashlib
 import uuid
+import datetime
+from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 
 from email.header import decode_header
@@ -15,6 +17,8 @@ salt = uuid.uuid4().hex
 def hash_password(password):
     # uuid используется для генерации случайного числа
     return hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
+
+text_subtype = 'plain'
 
 
 yandex_out = "smtp.yandex.ru"
@@ -122,6 +126,7 @@ def send_message(message):
     if len(to)==0:
         bot.send_message(id, "Вы не ввели адресата")
         return
+
     for j in range(number, len(list_info)):#получаем строки сообщений
         msg+=str(list_info[j]) + " "
 
@@ -130,9 +135,17 @@ def send_message(message):
         return
     if len(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values) != 0:
             host, port = check_address_out(fr, False)
+            msg = msg.replace(list_info[number],'')
+            BODY = "\r\n".join((
+                "From: %s" % fr,
+                "To: %s" % to,
+                "Subject: %s" % list_info[number],
+                "",
+                msg
+            ))
             server = smtplib.SMTP_SSL(host, port)
             server.login(fr, list(df.loc[(df['address']==fr) & (df['id']==id)]['password'].values)[0])
-            server.sendmail(fr, to, msg.encode('utf-8'))
+            server.sendmail(fr, to, BODY)
             server.quit()
             bot.send_message(id,"Ваше сообщение отправлено")
     else:
@@ -260,8 +273,8 @@ def read_email(message):
 def help(message):
     st = "/register user password - регистрация почты, принимаются gmail/mail, убедитесь" \
          "что вы настроили аутентификацию на почте\n" \
-         "/send user emails message - отправляет сообщения из почты  user на список emails почт перечисленных через" \
-         "пробел в message содержание сообщения\n" \
+         "/send user emails title message - отправляет сообщения из почты  user на список emails почт перечисленных через" \
+         "пробел в message содержание сообщения и с заглавием title\n" \
          "/read user count - читает сообщения из почты user count - количество сообщений"
     bot.send_message(message.from_user.id, st)
 
