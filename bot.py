@@ -8,6 +8,7 @@ import hashlib
 import uuid
 import datetime
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from bs4 import BeautifulSoup
 
 from email.header import decode_header
@@ -135,17 +136,18 @@ def send_message(message):
         return
     if len(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values) != 0:
             host, port = check_address_out(fr, False)
-            msg = msg.replace(list_info[number],'')
-            BODY = "\r\n".join((
-                "From: %s" % fr,
-                "To: %s" % to,
-                "Subject: %s" % list_info[number],
-                "",
-                msg
-            ))
+            st = msg.replace(list_info[number],'')
+            subject = list_info[number]
+            msg = MIMEMultipart()
+            msg['From'] = fr
+            msg['To'] = ''.join(to)
+            msg['Date'] = datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(st.encode('utf-8'), _charset='utf-8'))
             server = smtplib.SMTP_SSL(host, port)
             server.login(fr, list(df.loc[(df['address']==fr) & (df['id']==id)]['password'].values)[0])
-            server.sendmail(fr, to, BODY)
+            server.sendmail(fr, to, msg.as_string())
             server.quit()
             bot.send_message(id,"Ваше сообщение отправлено")
     else:
