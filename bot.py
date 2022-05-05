@@ -24,8 +24,8 @@ text_subtype = 'plain'
 
 yandex_out = "smtp.yandex.ru"
 yandex_out_port = 465
-yandex_in = "pop.yandex.ru"
-yandex_in_port = 995
+yandex_in = "imap.yandex.ru"
+yandex_in_port = 993
 
 gmail_in = "imap.gmail.com" #должна быть настроена аутентификация через приложение в гугле https://support.google.com/mail/answer/7126229?hl=ru
 gmail_out = "smtp.gmail.com"
@@ -50,11 +50,17 @@ else:
     fl.close()
     df = pd.read_csv(path_to_file, sep=';')
 
+
 def check_address_out(st, inout):
 
     if st.find('@')==-1:
         return None, None
     ll = st.split('@')
+    if ll[1].find("ya") != -1:
+        if not inout:
+            return yandex_out, yandex_out_port
+        else:
+            return yandex_in, yandex_in_port
     if ll[1].find("mail") == -1:
         if not inout:
             return mail_out, mail_out_port
@@ -74,6 +80,7 @@ def check_address_out(st, inout):
 
 @bot.message_handler(commands=['register']) #декоратор для приема сообщений регистр
 def register_account(message):
+    df = pd.read_csv(path_to_file, sep=';')
     id = message.from_user.id # получаем айди юзера по сообщению
     if len(message.text.split())<2:
         bot.send_message(id, "Неверная команда")
