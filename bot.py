@@ -3,8 +3,10 @@ import smtplib
 import pandas as pd
 import os
 import imaplib
+import email
+from bs4 import BeautifulSoup
 
-
+from email.header import decode_header
 
 yandex_out = "smtp.yandex.ru"
 yandex_out_port = 465
@@ -100,6 +102,7 @@ def send_message(message):
     fr = list_info[1]
     to = []
     msg = ""
+
     number = 0
     for i in range(2,len(list_info)): # ищем все емейлы
         if list_info[i].find("@")!=-1:
@@ -112,6 +115,10 @@ def send_message(message):
         return
     for j in range(number, len(list_info)):#получаем строки сообщений
         msg+=str(list_info[j]) + " "
+
+    if msg == "" or number==0:
+        bot.send_message(id, "Вы не ввели сообщение")
+        return
     if id in list(df['id']):
         if fr in list(df['address']):#проверяем наличие адреса для пользователя, подключаемся логинимся отправляем, в случае ошибки пишем
             host, port = check_address_out(fr, False)
@@ -168,36 +175,77 @@ def read_email(message):
             raw_email = data[0][1]
 
             raw_email_string = raw_email.decode('utf-8')
-            if host == mail_in:
-                num = raw_email_string.lower().find("date")
-                num_from = raw_email_string.lower().find("from")
-                num_to = raw_email_string.lower().find("to")
-                num_sub = raw_email_string.lower().find("subject")
-                if num != -1:
-                    date = raw_email_string[num:num + raw_email_string[num:].lower().find("\n")]
-                    st += date + "\n"
-                if num_from != -1:
-                    fr =raw_email_string[num_from:num_from + raw_email_string[num_from:].lower().find("\n")]
-                    st += fr + "\n"
-                if num_to != -1:
-                    to = raw_email_string[num_to:num_to + raw_email_string[num_to:].lower().find("\n")]
-                    st += to + "\n"
-                if num_sub != -1:
-                    sub =raw_email_string[num_sub:num_sub + raw_email_string[num_sub:].lower().find("\n")]
-                    st += sub + "\n"
-                num_d = raw_email_string.lower().find("<div>")
-                st += "Text:"+raw_email_string[num_d + 5:num_d + raw_email_string[num_d:].lower().find("</div")]
+            b = email.message_from_bytes(raw_email)
+            if b["Subject"] is not None:
+                subject, encoding = decode_header(b["Subject"])[0]
+                st += "Subject: "
+                if isinstance(subject, bytes):
+                    st+=subject.decode('utf-8')
+                else:
+                    st+=subject
+                st += '\n'
+            if b.get("From") is not None:
+                From, encoding = decode_header(b.get("From"))[0]
+                st += "From: "
+                if isinstance(From, bytes):
+                    st += From.decode('utf-8')
+                else:
+                    st += From
+                st+='\n'
+            if b.get("To") is not None:
+                To, encoding = decode_header(b.get("To"))[0]
+                st+= "To: "
+                if isinstance(To, bytes):
+                    st += To.decode('utf-8')
+                else:
+                    st += To
+                st += '\n'
+            if b.get("Date") is not None:
+                Date, encoding = decode_header(b.get("Date"))[0]
+                st+="Date: "
+                st += Date
+            st+='\nText: '
+            if b.is_multipart():
+                for part in b.walk():
+                    # extract content type of email
+                    content_type = part.get_content_type()
+                    content_disposition = str(part.get("Content-Disposition"))
+                    try:
+                        # get the email body
+                        body = part.get_payload(decode=True).decode()
+
+
+                    except:
+                        pass
+                    if content_type == "text/plain" and "attachment" not in content_disposition:
+                        # print text/plain emails and skip attachments
+                        st+=body
+                    if content_type == "text/html":
+                        soup = BeautifulSoup(body, 'html.parser')
+                        ll = soup.get_text()
+                        ll = ll.replace("  ", '')
+                        ll = ll.replace("\n\n", '')
+                        ll = ll.replace(" \n", '')
+                        ll = ll.replace("\t", '')
+                        st += ll
 
             else:
-                num = raw_email_string.find("Date")
-                ll = raw_email_string[num:].split("\n\r")
-                for i in range(len(ll)):
-                    if i == len(ll) - 1:
-                        st += "Text:" + ll[i].replace("\n", "") + "\n"
-                    else:
-                        if ll[i] != ' ':
-                            st += ll[i] + "\n"
-                st += "\n"
+                content_type = b.get_content_type()
+                # get the email body
+                body = b.get_payload(decode=True).decode()
+
+                if content_type == "text/plain":
+                    # print only text email parts
+                    st+=body
+                if content_type == "text/html":
+                    soup = BeautifulSoup(body,'html.parser')
+                    ll = soup.get_text()
+                    ll = ll.replace("  ",'')
+                    ll = ll.replace("\n\n", '')
+                    ll = ll.replace(" \n",'')
+                    ll = ll.replace("\t", '')
+                    st+=ll
+
         bot.send_message(id,st)
     else:
         bot.send_message(id, "Проверьте адресс ввода")
