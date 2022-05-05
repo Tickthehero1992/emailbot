@@ -4,9 +4,18 @@ import pandas as pd
 import os
 import imaplib
 import email
+import hashlib
+import uuid
 from bs4 import BeautifulSoup
 
 from email.header import decode_header
+
+salt = uuid.uuid4().hex
+
+def hash_password(password):
+    # uuid используется для генерации случайного числа
+    return hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
+
 
 yandex_out = "smtp.yandex.ru"
 yandex_out_port = 465
@@ -119,18 +128,15 @@ def send_message(message):
     if msg == "" or number==0:
         bot.send_message(id, "Вы не ввели сообщение")
         return
-    if id in list(df['id']):
-        if fr in list(df['address']):#проверяем наличие адреса для пользователя, подключаемся логинимся отправляем, в случае ошибки пишем
+    if len(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values) != 0:
             host, port = check_address_out(fr, False)
             server = smtplib.SMTP_SSL(host, port)
             server.login(fr, list(df.loc[(df['address']==fr) & (df['id']==id)]['password'].values)[0])
             server.sendmail(fr, to, msg.encode('utf-8'))
             server.quit()
             bot.send_message(id,"Ваше сообщение отправлено")
-        else:
-            bot.send_message(id, "Нужна регистрация почты отправления")
     else:
-        bot.send_message(id, "зарегистрируйтесь командой /register user password")
+        bot.send_message(id, "Зарегистрируйтесь командой /register user password")
 
 @bot.message_handler(commands=['read'])
 def read_email(message):
@@ -145,7 +151,7 @@ def read_email(message):
     else:
         count = message.text.split()[2]#счетчик сообщений для чтения
 
-    if id in list(df['id']) and address in list(df['address']):#проверяем есть ли для пользователя почта и читаем ее
+    if len(df.loc[(df['address']==address) & (df['id']==id)]['password'].values) != 0 :#проверяем есть ли для пользователя почта и читаем ее
         host, port = check_address_out(address, True)
         mail = imaplib.IMAP4_SSL(host, port)
         mail.login(address, list(df.loc[(df['address']==address) & (df['id']==id)]['password'].values)[0])
@@ -248,7 +254,7 @@ def read_email(message):
 
         bot.send_message(id,st)
     else:
-        bot.send_message(id, "Проверьте адресс ввода")
+        bot.send_message(id, "Не зарегистрированный пользователь для данного аккаунта")
 
 @bot.message_handler(commands=['help'])
 def help(message):
