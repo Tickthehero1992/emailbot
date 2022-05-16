@@ -9,7 +9,9 @@ import uuid
 import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from bs4 import BeautifulSoup
+from os.path import basename
 
 from email.header import decode_header
 
@@ -41,6 +43,21 @@ token = '613486352:AAGOjFuscBIb-fyXghecOST4qheIT9FFwGA' #здесь надо н�
 bot = telebot.TeleBot(token)
 
 path_to_file = "clients.csv"
+try:
+    os.mkdir("logs")
+except:
+    pass
+
+path_to_logs = "logs/logs.csv"
+
+if os.path.exists(path_to_logs):
+    df = pd.read_csv(path_to_logs, sep=';')
+else:
+    fl = open(path_to_logs, mode='w')
+    fl.write("id;from;to;subject;message;type\n")
+    fl.close()
+    df = pd.read_csv(path_to_logs, sep=';')
+
 
 if os.path.exists(path_to_file):
     df = pd.read_csv(path_to_file, sep=';')
@@ -147,11 +164,14 @@ def send_message(message):
             subject = list_info[number]
             msg = MIMEMultipart()
             msg['From'] = fr
-            msg['To'] = ''.join(to)
+            msg['To'] = ' '.join(to)
             msg['Date'] = datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
             msg['Subject'] = subject
-
             msg.attach(MIMEText(st.encode('utf-8'), _charset='utf-8'))
+            with open(path_to_logs, mode='a') as logs:
+                log = str(id) + ';' + msg["From"] + ';' + msg["To"] + ';' + \
+                      msg['Subject'] + ';' + st + ";text" +  '\n'
+                logs.write(log)
             server = smtplib.SMTP_SSL(host, port)
             server.login(fr, list(df.loc[(df['address']==fr) & (df['id']==id)]['password'].values)[0])
             server.sendmail(fr, to, msg.as_string())
@@ -273,7 +293,10 @@ def read_email(message):
                     ll = ll.replace(" \n",'')
                     ll = ll.replace("\t", '')
                     st+=ll
-
+        with open(path_to_logs, mode='a') as logs:
+            log = str(id) + ';' + address + ';' + address + ';' + \
+                  "read message" + ';' + "Read" + "; text" + '\n'
+            logs.write(log)
         bot.send_message(id,st)
     else:
         bot.send_message(id, "Не зарегистрированный пользователь для данного аккаунта")
@@ -287,5 +310,115 @@ def help(message):
          "/read user count - читает сообщения из почты user count - количество сообщений"
     bot.send_message(message.from_user.id, st)
 
+@bot.message_handler(commands=["send_file", "send_picture", "send_music", "send_voice", "send_video"])
+def send_file(message):
+    df = pd.read_csv(path_to_file,sep=';') # открываем датафрейм наших пользователей
+    id = message.from_user.id
+    if len(message.text.split())<3:
+        bot.send_message(id, "Неверная команда")
+        return
+    list_info = message.text.split()
+    fr = list_info[1]
+    to = []
+    msg = ""
+    number = 0
+    for i in range(2,len(list_info)): # ищем все емейлы
+        if list_info[i].find("@")!=-1:
+            to.append(list_info[i])
+        else:
+            number = i
+            break
+    if len(to)==0:
+        bot.send_message(id, "Вы не ввели адресата")
+        return
+
+    for j in range(number, len(list_info)):#получаем строки сообщений
+        msg+=str(list_info[j]) + " "
+
+    if msg == "" or number==0:
+        bot.send_message(id, "Вы не ввели сообщение")
+        return
+    if len(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values) != 0:
+            st = msg.replace(list_info[number] , '')
+            subject = list_info[number]
+            msg = MIMEMultipart()
+            msg['From'] = fr
+            msg['To'] = ' '.join(to)
+            msg['Date'] = datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+            msg['Subject'] = subject
+
+            with open(path_to_logs, mode='a') as logs:
+                log = str(id) + ';' + msg["From"] + ';' + msg["To"] + ';' + \
+                      msg['Subject'] + ';' + st+ ";File" + '\n'
+                logs.write(log)
+            bot.send_message(id, "Пришлите данные для отправки")
+    else:
+        bot.send_message(id, "Зарегистрируйтесь командой /register user password")
+
+
+@bot.message_handler(content_types=['document', 'photo', 'audio', 'video', 'voice'])
+def send_file(message):
+    try:
+        os.mkdir("data")
+    except:
+        pass
+    if message.content_type == 'document':
+        file_name = message.document.file_name
+        file_info = bot.get_file(message.document.file_id)
+    if message.content_type == 'photo':
+        file_name =  message.photo[1].file_id + ".jpeg"
+        file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
+    if message.content_type == 'audio':
+        file_name =  message.audio.file_id + ".mp3"
+        file_info = bot.get_file(message.audio.file_id)
+
+    downloaded_file = bot.download_file(file_info.file_path)
+    lf = pd.read_csv(path_to_logs, sep=';')
+    if len(lf.loc[lf["id"] == message.from_user.id]["type"].values) == 0 :
+        bot.send_message(message.from_user.id, "Вы не ввели соответствующую комманду")
+        return
+    if lf.loc[lf["id"] == message.from_user.id]["type"].values[-1]=="File":
+        with open("data/"+file_name, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.send_message(message.from_user.id, "Файл получен")
+    else:
+        bot.send_message(message.from_user.id, "Вы не ввели соответствующую комманду")
+        return
+    fr = lf.loc[lf["id"] == message.from_user.id]["from"].values[-1]
+    to = lf.loc[lf["id"] == message.from_user.id]["to"].values[-1]
+    subject = lf.loc[lf["id"] == message.from_user.id]["subject"].values[-1]
+    text = lf.loc[lf["id"] == message.from_user.id]["message"].values[-1]
+    file_sender(message.from_user.id, fr, to, subject, text, "data/"+file_name)
+    bot.send_message(message.from_user.id, "Файл отправлен")
+
+
+def file_sender(id, fr, to, subject, text, filepaths):
+    df = pd.read_csv(path_to_file, sep=';')
+    msg = MIMEMultipart()
+    to = to.replace(' ', ', ')
+    msg['From'] = fr
+    msg['To'] = to
+    msg['Date'] = datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(text))
+    if not isinstance(filepaths, list):
+        filepaths = [filepaths]
+
+    for f in filepaths or []:
+        with open(f, "rb") as fil:
+            part = MIMEApplication(
+                fil.read(),
+                Name=basename(f)
+            )
+        # After the file is closed
+        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
+        msg.attach(part)
+
+    host, port = check_address_out(fr, False)
+    server = smtplib.SMTP_SSL(host, port)
+    server.login(fr, list(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values)[0])
+    server.sendmail(fr, msg['To'], msg.as_string())
+    server.close()
 
 bot.polling(none_stop=True, interval=0)
