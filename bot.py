@@ -307,7 +307,10 @@ def help(message):
          "что вы настроили аутентификацию на почте\n" \
          "/send user emails title message - отправляет сообщения из почты  user на список emails почт перечисленных через" \
          "пробел в message содержание сообщения и с заглавием title\n" \
-         "/read user count - читает сообщения из почты user count - количество сообщений"
+         "/read user count - читает сообщения из почты user count - количество сообщений" \
+         "/send_file user emails title message - отправляет сообщение с файлом, музыкой, видео, голосовое сообщение" \
+         "/get_contacts - возвращает контакты для данного пользователя"
+
     bot.send_message(message.from_user.id, st)
 
 @bot.message_handler(commands=["send_file", "send_picture", "send_music", "send_voice", "send_video"])
@@ -395,6 +398,10 @@ def send_file(message):
     subject = lf.loc[lf["id"] == message.from_user.id]["subject"].values[-1]
     text = lf.loc[lf["id"] == message.from_user.id]["message"].values[-1]
     file_sender(message.from_user.id, fr, to, subject, text, "data/"+file_name)
+    with open(path_to_logs, mode='a') as logs:
+        log = str(message.from_user.id) + ';' + fr + ';' + to + ';' + \
+              subject + ';' + text + ";sendedFile" + '\n'
+        logs.write(log)
     bot.send_message(message.from_user.id, "Файл отправлен")
 
 @bot.message_handler(commands=["get_contacts"])
@@ -422,12 +429,11 @@ def get_contacts(message):
 def file_sender(id, fr, to, subject, text, filepaths):
     df = pd.read_csv(path_to_file, sep=';')
     msg = MIMEMultipart()
-    to = to.replace(' ', ', ')
     msg['From'] = fr
     msg['To'] = to
     msg['Date'] = datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
     msg['Subject'] = subject
-
+    to = to.split(' ')
     msg.attach(MIMEText(text))
     if not isinstance(filepaths, list):
         filepaths = [filepaths]
@@ -445,7 +451,7 @@ def file_sender(id, fr, to, subject, text, filepaths):
     host, port = check_address_out(fr, False)
     server = smtplib.SMTP_SSL(host, port)
     server.login(fr, list(df.loc[(df['address'] == fr) & (df['id'] == id)]['password'].values)[0])
-    server.sendmail(fr, msg['To'], msg.as_string())
-    server.close()
+    server.sendmail(fr, to, msg.as_string())
+    server.quit()
 
 bot.polling(none_stop=True, interval=0)
