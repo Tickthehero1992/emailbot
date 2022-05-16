@@ -371,6 +371,12 @@ def send_file(message):
     if message.content_type == 'audio':
         file_name =  message.audio.file_id + ".mp3"
         file_info = bot.get_file(message.audio.file_id)
+    if message.content_type == 'video':
+        file_name =  message.video.file_id + ".mp4"
+        file_info = bot.get_file(message.video.file_id)
+    if message.content_type == 'voice':
+        file_name =  message.voice.file_id + ".mp3"
+        file_info = bot.get_file(message.voice.file_id)
 
     downloaded_file = bot.download_file(file_info.file_path)
     lf = pd.read_csv(path_to_logs, sep=';')
