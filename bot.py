@@ -397,6 +397,27 @@ def send_file(message):
     file_sender(message.from_user.id, fr, to, subject, text, "data/"+file_name)
     bot.send_message(message.from_user.id, "Файл отправлен")
 
+@bot.message_handler(commands=["get_contacts"])
+def get_contacts(message):
+    df = pd.read_csv(path_to_logs, sep=';')
+    my_mails = df.loc[df["id"] == message.from_user.id]["from"].values
+    out_mails = df.loc[df["id"] == message.from_user.id]["to"].values
+    my_mails = set(my_mails)
+    out_mails = set(out_mails)
+    my_mails = ', '.join(my_mails)
+    bot.send_message(message.from_user.id, "My mails " + my_mails)
+    cont = []
+    for out in out_mails:
+        mails = out.split(' ')
+        if len(mails) > 0:
+            for m in mails:
+                cont.append(m)
+        else:
+            if mails != "Read":
+                cont(mails)
+    out_mails = set(cont)
+    out_mails = ', '.join(out_mails)
+    bot.send_message(message.from_user.id, "Contact mails " + out_mails)
 
 def file_sender(id, fr, to, subject, text, filepaths):
     df = pd.read_csv(path_to_file, sep=';')
