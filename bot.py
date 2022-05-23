@@ -62,7 +62,7 @@ else:
 if os.path.exists(path_to_file):
     df = pd.read_csv(path_to_file, sep=';')
 else:
-    fl = open(path_to_file, mode='w')
+    fl = open(path_to_file, mode='w', encoding='utf-8')
     fl.write("id;address;password\n")
     fl.close()
     df = pd.read_csv(path_to_file, sep=';')
