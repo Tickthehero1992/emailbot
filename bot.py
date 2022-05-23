@@ -53,7 +53,7 @@ path_to_logs = "logs/logs.csv"
 if os.path.exists(path_to_logs):
     df = pd.read_csv(path_to_logs, sep=';')
 else:
-    fl = open(path_to_logs, mode='w')
+    fl = open(path_to_logs, mode='w', encoding='utf-8')
     fl.write("id;from;to;subject;message;type\n")
     fl.close()
     df = pd.read_csv(path_to_logs, sep=';')
