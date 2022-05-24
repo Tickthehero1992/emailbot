@@ -2,24 +2,25 @@ import random
 
 path_to_file = "data/горфэнт.txt"
 
-BAD_SYM = ['\n', '\r', '\t', '\ufeff', '(', ')' ]
+BAD_SYM = ['\n', '\r', '\t', '\ufeff', '(', ')']
 class TextGenerator:
 
     def __init__(self, path=None, text="Sample text"):
         if path is not None:
             with open(path, mode='r', encoding='utf-8') as fl:
-                self.__text = fl.read()
+                self.text = fl.read()
         else:
-            self.__text = text
+            self.text = text
         self.__dict_text = dict()
 
     def __call__(self, *args, **kwargs):
-        return self.__text
+        return self.text
 
     def __str__(self):
-        return self.__text
+        return self.text
 
     def add_to_dict(self, sentense:str):
+
         for sym in BAD_SYM:
             sentense = sentense.replace(sym, '')
         if ',' in sentense:
@@ -35,10 +36,11 @@ class TextGenerator:
             list_next = self.__dict_text.get(word_list[i], list())
             list_next.append(word_list[i+1])
             self.__dict_text.update({word_list[i]:list_next})
+        return self.__dict_text
 
 
     def add_all_text(self):
-        sentense_list = self.__text.split('.')
+        sentense_list = self.text.split('.')
         for sentense in sentense_list:
             self.add_to_dict(sentense)
 
@@ -70,10 +72,10 @@ class TextGenerator:
                 text += '\n'
         return text
 
-tg = TextGenerator(path="data/Кафка.txt")
-tg.add_all_text()
-text = tg.generate_text()
-print(text)
+# tg = TextGenerator(path="data/Кафка.txt")
+# tg.add_all_text()
+# text = tg.generate_text()
+# print(text)
 
 #
 # with open("data/file.txt", mode='w', encoding='utf-8') as fl:
